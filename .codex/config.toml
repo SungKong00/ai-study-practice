@@ -1,0 +1,6 @@
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp/oauth"
+
+[mcp_servers.adrs]
+command = "sh"
+args = ["-c", "exec \"$(git rev-parse --show-toplevel)/scripts/adrs\" mcp serve"]

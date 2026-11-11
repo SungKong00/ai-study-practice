@@ -7,7 +7,8 @@
     "adr": "scripts/adrs",
     "adr:preview": "log4brains preview",
     "adr:build": "log4brains build",
-    "harness:check": "node --test tests/adr-compat.test.cjs"
+    "harness:check": "node --test tests/adr-compat.test.cjs",
+    "showboat": "uvx --from showboat==0.6.1 showboat"
   },
   "devDependencies": {
     "log4brains": "1.1.0",
