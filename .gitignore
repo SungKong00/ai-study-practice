@@ -1,0 +1,7 @@
+.tools/
+node_modules/
+.log4brains/
+.DS_Store
+.env
+.env.*
+!.env.example

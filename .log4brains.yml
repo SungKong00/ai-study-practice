@@ -1,0 +1,4 @@
+project:
+  name: AI Study Harness
+  tz: Asia/Seoul
+  adrFolder: ./docs/adr

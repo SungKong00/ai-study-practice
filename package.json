@@ -1,0 +1,16 @@
+{
+  "name": "ai-study-harness",
+  "private": true,
+  "scripts": {
+    "postinstall": "node scripts/patch-log4brains.cjs",
+    "tools:setup": "python3 scripts/setup-tools.py",
+    "adr": "scripts/adrs",
+    "adr:preview": "log4brains preview",
+    "adr:build": "log4brains build",
+    "harness:check": "node --test tests/adr-compat.test.cjs"
+  },
+  "devDependencies": {
+    "log4brains": "1.1.0",
+    "yaml": "1.10.3"
+  }
+}
