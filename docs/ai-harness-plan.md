@@ -8,17 +8,22 @@
 
 ## 현재 적용 상태
 
-- 프로젝트 폴더에는 루트 `AGENTS.md`와 이 계획 문서만 있다. 애플리케이션 코드·빌드 설정·프로젝트 도구 설정은 없다.
-- 현재 적용된 것은 프로젝트 작업 지침과 도입 계획 문서다. `AGENTS.md` 외의 구성은 도입 예정이며, 프로젝트 설치·설정·연동이나 호환성 검증은 수행하지 않았다.
+- 애플리케이션 코드와 빌드 설정은 아직 없다.
+- 프로젝트 작업 지침은 루트 `AGENTS.md`에서 관리한다.
+- OpenSpec은 기존 로컬 CLI 1.14.3을 재사용해 Codex용으로 초기화했다. `openspec/config.yaml`은 기본 `spec-driven` 형식과 한국어 산출물을 지정한다. 구조 제목과 SHALL/MUST 키워드는 도구가 요구하는 영어를 유지한다.
+- `.agents/skills/`에는 OpenSpec이 제공하는 기본 Skill 6개가 있다. 직접 만드는 개발 Skill은 아직 없다.
+- adrs·Log4brains·Context7 MCP·Showboat의 프로젝트 설정과 ADR 호환성 검증은 아직 수행하지 않았다.
 - 사용자 전역 환경의 도구 설치 여부는 이 문서의 적용 상태에 포함하지 않는다.
 
-현재는 문서 정리 단계다. 도구 설치·설정·초기화·연동, 전역 실행 환경 변경, 개발 Skill 작성, Showboat 실행은 별도 요청 때 진행한다. 애플리케이션 생성, 의존성·빌드·CI 변경, 도메인·API 구현도 이번 범위에는 포함하지 않는다.
+### OpenSpec 사용 진입점
+
+Codex에서 변경안을 정리할 때 `$openspec-propose`를 지정하거나 Skills 목록에서 `openspec-propose`를 선택한다. 제안 검토 후 구현에는 `openspec-apply-change`를 사용한다. 나머지 작업은 `.agents/skills/openspec-*/SKILL.md`에서 해당 Skill의 절차를 확인한다.
 
 ## 채택한 구성과 역할
 
 | 구성 | 도입 후 맡길 역할 |
 |---|---|
-| AGENTS.md | 프로젝트 기본 작업 지침과 관련 문서·Skill의 진입점. 현재는 이 계획 문서만 연결한다. |
+| AGENTS.md | 프로젝트 기본 작업 지침과 관련 문서·Skill의 진입점 |
 | OpenSpec | 기능 요구사항, 변경 계획, 작업 목록, 완료된 변경 관리 |
 | 직접 만드는 개발 Skills | 이 프로젝트의 Spring Boot 개발 방법과 도구 사용 절차 |
 | MADR | ADR의 배경·대안·결정 이유·결과를 작성하는 형식 |
@@ -65,5 +70,3 @@ Rulesync, Archgate, Quorum은 이번 범위에서 제외한다. Superpowers, GSD
 - ADR 디렉터리·템플릿, ADR 작성 대상의 기준, adrs의 CLI 또는 MCP 연결 방식
 - Context7 MCP의 프로젝트 연결 설정
 - Showboat 보고용 로컬 데모 환경과 임시 결과물 처리 방식
-
-설치 매뉴얼, 개별 Skill, ADR, OpenSpec 변경 문서, 데모 보고서는 아직 만들지 않는다. 실제 도입은 별도 요청에 따라 진행한다.
