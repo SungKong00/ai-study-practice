@@ -1,92 +1,80 @@
-# AI 개발 환경 도입 계획
+# AI 개발 환경 설정과 남은 계획
 
-## 목적
+## 목적과 현재 범위
 
-하나의 Spring Boot 연습 프로젝트에서 간단한 기능을 개발하며, Codex 중심의 AI 개발 환경을 직접 구성하고 사용한다. 선택한 설정과 실제 개발에서의 사용 방법을 스터디원에게 설명할 수 있게 만드는 것이 목표다.
+하나의 Spring Boot 데모 저장소에서 Codex로 개발하는 환경을 구성하고, 설정과 사용 방법을 스터디원에게 공유한다. 현재 작업 범위는 AI 도구 설정이다. Spring Boot 프로젝트·쇼핑몰 API·개발용 Skill은 아직 만들지 않는다.
 
-여러 회차의 스터디 운영이나 도구 비교 실험을 구성하지 않는다. 최소 구성에만 한정하기보다 선택한 도구와 기능을 직접 익히는 데 의미를 둔다. Claude Code는 향후 사용할 수 있으나 이번 구성의 필수 대상은 아니다.
+공유 설정과 Skills는 저장소에 둔다. 실행 도구는 기존 로컬 설치를 우선 재사용하며, 개인 인증 정보는 저장소 밖에서 관리한다.
 
-## 현재 적용 상태
+## 적용한 구성
 
-- 애플리케이션 코드와 빌드 설정은 아직 없다.
-- 프로젝트 작업 지침은 루트 `AGENTS.md`에서 관리한다.
-- OpenSpec은 기존 로컬 CLI 1.14.3을 재사용해 Codex용으로 초기화했다. `openspec/config.yaml`은 기본 `spec-driven` 형식과 한국어 산출물을 지정한다. 구조 제목과 SHALL/MUST 키워드는 도구가 요구하는 영어를 유지한다.
-- `.agents/skills/`에는 OpenSpec이 제공하는 기본 Skill 6개가 있다. 직접 만드는 개발 Skill은 아직 없다.
-- adrs·Log4brains·Context7 MCP·Showboat의 프로젝트 설정과 ADR 호환성 검증은 아직 수행하지 않았다.
-- 사용자 전역 환경의 도구 설치 여부는 이 문서의 적용 상태에 포함하지 않는다.
-
-### OpenSpec 사용 진입점
-
-Codex에서 변경안을 정리할 때 `$openspec-propose`를 지정하거나 Skills 목록에서 `openspec-propose`를 선택한다. 제안 검토 후 구현에는 `openspec-apply-change`를 사용한다. 나머지 작업은 `.agents/skills/openspec-*/SKILL.md`에서 해당 Skill의 절차를 확인한다.
-
-## 확정한 설정 범위
-
-- 공유할 설정과 Skills는 이 저장소에서 관리한다. 실행 도구는 기존 로컬 설치를 우선 재사용하며, 새 도구의 설치 방식은 해당 도입 단계에서 정한다.
-- 하네스 기반을 먼저 구성한다. Java·Spring Boot 버전, 빌드 도구, DB와 데모 기능은 이후 애플리케이션 구성 단계에서 결정한다.
-
-## 채택한 구성과 역할
-
-| 구성 | 도입 후 맡길 역할 |
+| 구성 | 설정 위치와 역할 |
 |---|---|
-| AGENTS.md | 프로젝트 기본 작업 지침과 관련 문서·Skill의 진입점 |
-| [OpenSpec](https://github.com/Fission-AI/OpenSpec/blob/v1.14.3/docs/supported-tools.md) | 기능 요구사항, 변경 계획, 작업 목록, 완료된 변경 관리 |
-| 직접 만드는 개발 Skills | 이 프로젝트의 Spring Boot 개발 방법과 도구 사용 절차 |
-| MADR | ADR의 배경·대안·결정 이유·결과를 작성하는 형식 |
-| [adrs](https://github.com/joshrotenberg/adrs) | ADR 원본 생성·검색·상태 변경·대체 관계 관리 |
-| [Log4brains](https://github.com/thomvaill/log4brains) | 같은 ADR 원본을 사람이 브라우저에서 검색하고 읽는 문서 사이트 |
-| [Context7 MCP](https://github.com/upstash/context7) | 개발 중 필요한 외부 라이브러리 문서와 사용 예시 조회 |
-| [Showboat](https://github.com/simonw/showboat) | 사용자의 명시적 보고 요청 시 실제 실행 결과 기록 |
+| OpenSpec 1.14.3 | `openspec/config.yaml`, `.agents/skills/openspec-*`. 요구사항·변경 계획·작업·완료된 변경을 관리한다. 산출물은 한국어로 작성하고 구조 제목과 SHALL/MUST는 영어로 유지한다. |
+| adrs 0.13.0 + MADR | `adrs.toml`, `docs/adr/template.md`. `docs/adr/`의 원본을 생성·검색하고 상태·대체 관계를 관리한다. 실행 파일은 `.tools/bin/adrs`에 설치한다. |
+| Log4brains 1.1.0 | `.log4brains.yml`. 같은 ADR 원본을 브라우저에서 조회한다. 쓰기는 adrs가 맡는다. |
+| adrs MCP | `.codex/config.toml`. 저장소의 adrs 실행 진입점을 사용해 Codex에서 ADR을 조회·관리한다. |
+| Context7 MCP | `.codex/config.toml`의 원격 OAuth 연결. 외부 라이브러리 문서와 사용 예시를 조회한다. 개인 로그인 정보는 Codex가 저장소 밖에 보관한다. |
+| Showboat 0.6.1 | `package.json`의 `showboat` 명령. 기존 uv로 고정 버전을 실행한다. 명시적인 보고 요청에만 사용한다. |
 
-## 도입 순서
+직접 만든 개발 Skill은 아직 없다. 현재 `.agents/skills/`의 6개는 OpenSpec이 제공한 기본 Skill이다. 전역 Codex 실행 설정은 변경하지 않았다.
 
-아래는 설정과 확인을 진행할 순서다. 실제 적용 여부는 위의 현재 적용 상태에서 관리한다.
+## 처음 준비하기
 
-| 순서 | 작업 | 확인할 결과 |
-|---|---|---|
-| 1 | OpenSpec의 Codex용 프로젝트 연결 | 프로젝트 설정과 기본 Skills가 생성되고 CLI가 프로젝트를 인식한다. |
-| 2 | MADR·adrs·Log4brains 연결 후 adrs MCP 구성 | 하나의 ADR 원본으로 생성·검색·상태·대체 관계를 관리하고, 브라우저 표시와 MCP의 프로젝트 접근을 확인한다. |
-| 3 | Context7 MCP 연결 | 프로젝트 범위의 Codex 설정으로 라이브러리 검색·문서 조회를 확인한다. 인증과 버전 확인 방법도 정한다. |
-| 4 | Showboat 사용 준비 | 실행 방법과 임시 결과물 위치를 정한다. 실제 변경사항 보고는 명시적 요청이 있을 때 수행한다. |
-| 5 | Spring Boot 프로젝트 구성과 첫 기능 개발 | 애플리케이션 구성을 결정하고 OpenSpec·ADR·문서 조회를 실제 개발에 적용한다. |
-| 6 | 직접 만드는 개발 Skills와 하위 지침 정리 | 실제 개발에서 필요한 절차를 Skill로 만들고, 구현 범위에 맞춰 문서·AGENTS.md를 나눈다. |
+현재 검증 환경은 macOS arm64, Node.js 22.17.0, Python 3, uv다. Git과 Codex CLI도 필요하다.
 
-첫 단계에서 변경 관리의 진입점을 마련하고, ADR 원본과 표시 호환성을 검증한 뒤 MCP를 연결한다. Context7과 Showboat의 사용 준비를 마친 후 실제 Spring Boot 개발에서 전체 흐름을 확인한다. Skill 이름·개수나 문서의 하위 계층은 미리 확정하지 않는다.
+```sh
+npm ci
+npm run tools:setup
+codex mcp login context7
+```
 
-## 도구 연결 방향과 도입 시 확인 사항
+`npm ci`는 Log4brains의 읽기 호환 코드를 적용하고 웹 미리보기 빌드를 준비한다. `tools:setup`은 고정한 adrs 배포 파일의 SHA-256을 확인해 프로젝트 안에 설치한다. Context7 로그인은 사용하는 사람마다 완료한다. 프로젝트의 MCP 설정을 읽으려면 Codex가 신뢰하는 프로젝트여야 한다.
 
-### OpenSpec과 개발 Skills
+새 설정이 현재 채팅에 나타나지 않으면 이 프로젝트의 새 채팅에서 MCP와 Skills 목록을 확인한다.
 
-OpenSpec이 관리하는 구현·변경 내용을 직접 만드는 개발 Skill의 수행 절차에 연결할 예정이다. 구체적인 Skill 이름·개수·세부 절차는 실제 개발 중 정한다. 도입 시 프로젝트에서 실제로 사용할 작업 흐름과 연결 방식을 확인한다. 작은 수정마다 OpenSpec 변경 문서나 ADR 작성을 의무화하지 않는다.
+## OpenSpec
 
-### MADR·adrs·Log4brains
+Codex에서 `$openspec-propose`를 지정하거나 Skills 목록에서 `openspec-propose`를 선택해 변경안을 정리한다. 구현에는 `openspec-apply-change`를 사용한다. 나머지 절차는 각 `SKILL.md`를 따른다.
 
-ADR은 가능한 한 하나의 원본으로 관리한다. adrs로 관리하는 MADR 문서를 Log4brains에서도 읽도록 구성할 예정이다. 먼저 CLI로 원본 생성·검색·상태 변경·대체 관계와 Log4brains 표시를 검증한 뒤, 같은 프로젝트에 adrs MCP를 연결하기로 했다.
+모든 작은 수정에 OpenSpec 변경 문서나 ADR을 요구하지 않는다. 기능 요구사항과 개발 방식이 정해지면 OpenSpec 작업에 직접 만든 개발 Skill을 연결한다.
 
-adrs의 MADR 출력과 Log4brains가 완전히 호환된다고 가정하지 않는다. 실제 도입 시 ADR 디렉터리와 템플릿을 맞추고, 샘플 문서로 제목·날짜·상태·대체 관계가 올바르게 표시되는지 확인한다. 이 검증은 아직 수행하지 않았다. 호환성 문제가 있어도 도구 교체나 ADR 이중 관리를 임의로 결정하지 않는다.
+## ADR 관리와 브라우저 조회
 
-### Context7 MCP
+원본은 `docs/adr/`의 번호가 붙은 Markdown 파일이다. 작성 규칙은 [ADR 작업 지침](AGENTS.md), 템플릿은 [template.md](adr/template.md)를 따른다.
 
-외부 라이브러리의 API·설정을 확인할 때 프로젝트의 라이브러리 버전을 먼저 확인하고, 조회 자료가 해당 버전에 맞는지 확인하는 방향으로 구성한다. 실제 도입 시 Codex 연결과 버전에 맞는 자료 조회가 가능한지 확인한다. 조회 문서 전체를 저장소에 복사하거나 별도 보고서로 누적하지 않는다.
+```sh
+npm run adr -- new "결정 제목"
+npm run adr -- status 2 accepted
+npm run adr -- new --supersedes 2 "대체하는 결정 제목"
+npm run adr -- doctor
+npm run adr:preview -- --no-open
+npm run adr:build
+npm run harness:check
+```
 
-### Showboat
+미리보기는 기본 `http://localhost:4004/`, 정적 사이트 생성물은 `.log4brains/out/`이다. 생성물과 실행 파일은 커밋하지 않는다.
 
-“이번 변경사항을 Showboat를 활용해서 보고해줘”처럼 사용자가 명시적으로 요청할 때만 사용한다. 자동 실행하거나 코드 변경을 감지해 보고서를 갱신하는 도구로 취급하지 않는다.
+Log4brains는 adrs의 YAML 메타데이터를 기본 지원하지 않으므로 읽기 단계에 호환 코드를 적용했다. 원본을 직접 읽고 메모리에서 상태·날짜·대체 관계를 전달하며, 별도 ADR 파일을 생성하지 않는다. 적용 대상은 CLI와 웹 빌드의 두 진입점이다. 버전 변경 시에는 `harness:check`와 브라우저 표시를 다시 검증한다. 결정 배경과 제약은 [ADR 0001](adr/0001-manage-adr-with-madr-and-adrs.md)에 둔다.
 
-1. Codex가 변경 범위와 Git diff 등을 확인해 변경 내용·이유·영향을 분석한다.
-2. Showboat로 필요한 명령이나 API 요청을 실제 실행하고 결과를 기록한다.
-3. Codex가 변경 설명과 실행 결과를 함께 정리한다.
+## Context7
 
-Showboat 자체가 Git 변경사항을 자동 분석한다고 가정하지 않는다. 보고서는 기본적으로 임시 결과물이며, 사용자가 보관을 요청하지 않으면 저장소의 영구 문서나 커밋 대상으로 누적하지 않는다. 실제 도입 시 로컬 데모 환경, 실행 명령·API 요청의 데이터 변경 등 부작용, 임시 결과물의 저장 위치와 보관 방식을 확인한다.
+라이브러리 API·설정을 확인할 때 프로젝트의 실제 의존성 버전을 먼저 확인한다. `resolve-library-id`로 라이브러리와 제공 버전을 확인하고 `query-docs`로 필요한 내용을 조회한다. 필요한 버전이 없거나 근거가 불분명하면 해당 버전의 공식 문서로 보완한다. 조회한 문서 전체를 저장소에 복사하거나 보고서로 누적하지 않는다.
 
-## 제외한 구성
+## Showboat
 
-Rulesync, Archgate, Quorum은 이번 범위에서 제외한다. Superpowers, GSD, OMX, Beads 등 다른 워크플로 도구도 임의로 추가하지 않는다.
+“이번 변경사항을 Showboat를 활용해서 보고해줘”처럼 명시적인 보고 요청이 있을 때만 사용한다.
 
-## 아직 결정하지 않은 사항
+1. Codex가 변경 범위와 Git diff를 확인해 변경 내용·이유·영향을 설명한다.
+2. `npm run showboat -- <명령>`으로 필요한 명령·API 요청을 실행하고 결과를 기록한다.
+3. Codex가 변경 설명과 실행 결과를 함께 보고한다.
 
-- Java·Spring Boot 버전, 빌드 도구, DB, 애플리케이션 아키텍처와 데모 기능
-- 아직 도입하지 않은 도구의 버전과 프로젝트 설정 방식
-- OpenSpec을 적용할 변경의 범위와 개발 Skill의 구체적인 구성·연결 절차
-- ADR 디렉터리·템플릿, ADR 작성 대상의 기준, adrs MCP의 세부 설정
-- Context7 MCP의 인증 방식과 프로젝트 연결 설정
-- Showboat 보고용 로컬 데모 환경과 임시 결과물 처리 방식
+보고서는 저장소 밖의 임시 디렉터리에서 작성한다. 보관을 요청받은 경우에만 영구 문서로 남긴다. 로컬 데모 환경과 데이터 변경 등 부작용을 확인한다. `verify`도 기록된 코드를 다시 실행하므로 같은 확인이 필요하다.
+
+Showboat는 Git 변경사항을 자동 분석하거나 보고서를 자동 갱신하는 도구로 사용하지 않는다. 현재는 실행 준비만 했으며 데모 보고서는 만들지 않았다.
+
+## 보류한 개발 계획
+
+Java 21·Spring Boot 4.1.2·Gradle Kotlin DSL·H2와 쇼핑몰 데모 방향을 선택했으나 아직 적용하지 않았다. 기능 범위와 아키텍처는 구현 요청 때 정한다. Spring 개발용 Skill과 추가 하위 지침도 실제 개발 절차와 책임 범위가 생길 때 작성한다.
+
+Claude Code는 필수 대상이 아니다. Rulesync·Archgate·Quorum은 제외한다. Superpowers·GSD·OMX·Beads 등 다른 워크플로 도구는 임의로 추가하지 않는다.
