@@ -19,18 +19,38 @@
 
 Codex에서 변경안을 정리할 때 `$openspec-propose`를 지정하거나 Skills 목록에서 `openspec-propose`를 선택한다. 제안 검토 후 구현에는 `openspec-apply-change`를 사용한다. 나머지 작업은 `.agents/skills/openspec-*/SKILL.md`에서 해당 Skill의 절차를 확인한다.
 
+## 확정한 설정 범위
+
+- 공유할 설정과 Skills는 이 저장소에서 관리한다. 실행 도구는 기존 로컬 설치를 우선 재사용하며, 새 도구의 설치 방식은 해당 도입 단계에서 정한다.
+- 하네스 기반을 먼저 구성한다. Java·Spring Boot 버전, 빌드 도구, DB와 데모 기능은 이후 애플리케이션 구성 단계에서 결정한다.
+
 ## 채택한 구성과 역할
 
 | 구성 | 도입 후 맡길 역할 |
 |---|---|
 | AGENTS.md | 프로젝트 기본 작업 지침과 관련 문서·Skill의 진입점 |
-| OpenSpec | 기능 요구사항, 변경 계획, 작업 목록, 완료된 변경 관리 |
+| [OpenSpec](https://github.com/Fission-AI/OpenSpec/blob/v1.14.3/docs/supported-tools.md) | 기능 요구사항, 변경 계획, 작업 목록, 완료된 변경 관리 |
 | 직접 만드는 개발 Skills | 이 프로젝트의 Spring Boot 개발 방법과 도구 사용 절차 |
 | MADR | ADR의 배경·대안·결정 이유·결과를 작성하는 형식 |
 | [adrs](https://github.com/joshrotenberg/adrs) | ADR 원본 생성·검색·상태 변경·대체 관계 관리 |
-| Log4brains | 같은 ADR 원본을 사람이 브라우저에서 검색하고 읽는 문서 사이트 |
-| Context7 MCP | 개발 중 필요한 외부 라이브러리 문서와 사용 예시 조회 |
+| [Log4brains](https://github.com/thomvaill/log4brains) | 같은 ADR 원본을 사람이 브라우저에서 검색하고 읽는 문서 사이트 |
+| [Context7 MCP](https://github.com/upstash/context7) | 개발 중 필요한 외부 라이브러리 문서와 사용 예시 조회 |
 | [Showboat](https://github.com/simonw/showboat) | 사용자의 명시적 보고 요청 시 실제 실행 결과 기록 |
+
+## 도입 순서
+
+아래는 설정과 확인을 진행할 순서다. 실제 적용 여부는 위의 현재 적용 상태에서 관리한다.
+
+| 순서 | 작업 | 확인할 결과 |
+|---|---|---|
+| 1 | OpenSpec의 Codex용 프로젝트 연결 | 프로젝트 설정과 기본 Skills가 생성되고 CLI가 프로젝트를 인식한다. |
+| 2 | MADR·adrs·Log4brains 연결 후 adrs MCP 구성 | 하나의 ADR 원본으로 생성·검색·상태·대체 관계를 관리하고, 브라우저 표시와 MCP의 프로젝트 접근을 확인한다. |
+| 3 | Context7 MCP 연결 | 프로젝트 범위의 Codex 설정으로 라이브러리 검색·문서 조회를 확인한다. 인증과 버전 확인 방법도 정한다. |
+| 4 | Showboat 사용 준비 | 실행 방법과 임시 결과물 위치를 정한다. 실제 변경사항 보고는 명시적 요청이 있을 때 수행한다. |
+| 5 | Spring Boot 프로젝트 구성과 첫 기능 개발 | 애플리케이션 구성을 결정하고 OpenSpec·ADR·문서 조회를 실제 개발에 적용한다. |
+| 6 | 직접 만드는 개발 Skills와 하위 지침 정리 | 실제 개발에서 필요한 절차를 Skill로 만들고, 구현 범위에 맞춰 문서·AGENTS.md를 나눈다. |
+
+첫 단계에서 변경 관리의 진입점을 마련하고, ADR 원본과 표시 호환성을 검증한 뒤 MCP를 연결한다. Context7과 Showboat의 사용 준비를 마친 후 실제 Spring Boot 개발에서 전체 흐름을 확인한다. Skill 이름·개수나 문서의 하위 계층은 미리 확정하지 않는다.
 
 ## 도구 연결 방향과 도입 시 확인 사항
 
@@ -40,7 +60,7 @@ OpenSpec이 관리하는 구현·변경 내용을 직접 만드는 개발 Skill�
 
 ### MADR·adrs·Log4brains
 
-ADR은 가능한 한 하나의 원본으로 관리한다. adrs로 관리하는 MADR 문서를 Log4brains에서도 읽도록 구성할 예정이다. Codex가 필요한 결정을 조회·관리하는 연결은 adrs의 CLI 또는 MCP를 검토한다.
+ADR은 가능한 한 하나의 원본으로 관리한다. adrs로 관리하는 MADR 문서를 Log4brains에서도 읽도록 구성할 예정이다. 먼저 CLI로 원본 생성·검색·상태 변경·대체 관계와 Log4brains 표시를 검증한 뒤, 같은 프로젝트에 adrs MCP를 연결하기로 했다.
 
 adrs의 MADR 출력과 Log4brains가 완전히 호환된다고 가정하지 않는다. 실제 도입 시 ADR 디렉터리와 템플릿을 맞추고, 샘플 문서로 제목·날짜·상태·대체 관계가 올바르게 표시되는지 확인한다. 이 검증은 아직 수행하지 않았다. 호환성 문제가 있어도 도구 교체나 ADR 이중 관리를 임의로 결정하지 않는다.
 
@@ -65,8 +85,8 @@ Rulesync, Archgate, Quorum은 이번 범위에서 제외한다. Superpowers, GSD
 ## 아직 결정하지 않은 사항
 
 - Java·Spring Boot 버전, 빌드 도구, DB, 애플리케이션 아키텍처와 데모 기능
-- 각 도구의 도입 버전과 프로젝트 설정 방식
+- 아직 도입하지 않은 도구의 버전과 프로젝트 설정 방식
 - OpenSpec을 적용할 변경의 범위와 개발 Skill의 구체적인 구성·연결 절차
-- ADR 디렉터리·템플릿, ADR 작성 대상의 기준, adrs의 CLI 또는 MCP 연결 방식
-- Context7 MCP의 프로젝트 연결 설정
+- ADR 디렉터리·템플릿, ADR 작성 대상의 기준, adrs MCP의 세부 설정
+- Context7 MCP의 인증 방식과 프로젝트 연결 설정
 - Showboat 보고용 로컬 데모 환경과 임시 결과물 처리 방식
