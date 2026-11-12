@@ -35,9 +35,11 @@ codex mcp login context7
 
 ## OpenSpec
 
+OpenSpec·ADR 적용 여부는 [루트 작업 지침](../AGENTS.md)의 기준을 따른다.
+
 Codex에서 `$openspec-propose`를 지정하거나 Skills 목록에서 `openspec-propose`를 선택해 변경안을 정리한다. 구현에는 `openspec-apply-change`를 사용한다. 나머지 절차는 각 `SKILL.md`를 따른다.
 
-모든 작은 수정에 OpenSpec 변경 문서나 ADR을 요구하지 않는다. 기능 요구사항과 개발 방식이 정해지면 OpenSpec 작업에 직접 만든 개발 Skill을 연결한다.
+기능 요구사항과 개발 방식이 정해지면 OpenSpec 작업에 직접 만든 개발 Skill을 연결한다.
 
 ## ADR 관리와 브라우저 조회
 
