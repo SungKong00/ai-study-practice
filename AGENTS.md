@@ -9,6 +9,6 @@
 - ADR을 브라우저에서 조회할 때는 `npm run adr:preview`로 Log4brains를 실행한다.
 - 외부 라이브러리의 API·설정 근거가 필요하면 [Context7 사용 기준](docs/ai-harness-plan.md#context7)에 따라 조회한다. MCP 연결은 [.codex/config.toml](.codex/config.toml)에서 관리한다.
 - Showboat 보고를 요청받으면 [실행 조건·절차·보관 기준](docs/ai-harness-plan.md#showboat)을 확인한다.
-- 파일 변경을 완료하면 작업 단위별로 나누어 커밋한다. 커밋 메시지는 한글로 작성한다.
+- 파일 변경을 완료하면 작업 단위별로 나누어 커밋한다. 메시지는 `type: 한글 내용` 형식으로 쓰고, 유형은 `feat`, `fix`, `docs`, `refactor`, `test`, `build`, `chore` 등 변경 목적에 맞는 영문을 사용한다.
 - 작업을 마칠 때 관련 문서·OpenSpec·ADR에 남은 정리가 있는지 확인한다. 사용자 검토가 필요한 명세 반영·변경 보관·ADR 상태 확정 등이 남으면 최종 응답에서 대상과 필요한 조치를 구체적으로 제안한다. 이미 요청받은 정리는 완료하고, 남은 항목이 없으면 제안을 생략한다.
 - 최종 응답 마지막에 커밋 해시와 메시지를 보고한다. 커밋하지 못했다면 그 이유를 적는다.
