@@ -1,6 +1,8 @@
 .tools/
 node_modules/
 .log4brains/
+.gradle/
+build/
 .DS_Store
 .env
 .env.*

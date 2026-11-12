@@ -1,6 +1,7 @@
 # 프로젝트 작업 지침
 
 - 하나의 Spring Boot 데모를 유지한다. 도구 비교나 여러 회차 스터디 운영을 위한 구조로 확장하지 않는다.
+- 애플리케이션 실행·검증은 [README](README.md)의 Gradle 명령을 사용한다. Node.js 명령은 AI 하네스용이다.
 - AI 개발 환경을 준비하거나 설정을 변경할 때는 [설정과 사용법](docs/ai-harness-plan.md)을 확인한다.
 - 새 기능 추가나 API 계약·업무 규칙 변경에는 별도 호출 없이 [OpenSpec Skills](.agents/skills/)를 사용한다. 산출물 언어는 [OpenSpec 설정](openspec/config.yaml)을 따른다.
 - 오타·서식 수정, 기존 명세를 복구하는 국소 버그 수정, 동작을 유지하는 단순 정리는 OpenSpec을 생략한다.

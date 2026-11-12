@@ -2,8 +2,8 @@
 
 ## 1. 애플리케이션 기반
 
-- [ ] 1.1 Spring Boot·Gradle Wrapper·JPA·메모리 H2를 구성하고 `./gradlew classes`가 통과하는지 확인한다.
-- [ ] 1.2 실행·빌드 방법을 README와 작업 지침에 연결하고 문서의 명령으로 앱이 실행되는지 확인한다.
+- [x] 1.1 Spring Boot·Gradle Wrapper·JPA·메모리 H2를 구성하고 `./gradlew classes`가 통과하는지 확인한다.
+- [x] 1.2 실행·빌드 방법을 README와 작업 지침에 연결하고 문서의 명령으로 앱이 실행되는지 확인한다.
 
 ## 2. 상품 등록과 조회
 
