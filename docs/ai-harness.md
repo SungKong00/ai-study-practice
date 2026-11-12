@@ -1,27 +1,29 @@
-# AI 개발 환경 설정과 남은 계획
+# AI 개발 환경 설정과 사용법
 
-## 목적과 현재 범위
+## 목적과 구성 범위
 
 하나의 Spring Boot 데모 저장소에서 Codex로 개발하는 환경을 구성하고, 설정과 사용 방법을 스터디원에게 공유한다. 애플리케이션 실행과 API 사용법은 [README](../README.md)에서 관리한다.
 
 공유 설정과 Skills는 저장소에 둔다. 실행 도구는 기존 로컬 설치를 우선 재사용하며, 개인 인증 정보는 저장소 밖에서 관리한다.
 
+Claude Code는 필수 대상이 아니다. Rulesync·Archgate·Quorum은 제외하며, Superpowers·GSD·OMX·Beads 등 다른 워크플로 도구는 임의로 추가하지 않는다.
+
 ## 적용한 구성
 
 | 구성 | 설정 위치와 역할 |
 |---|---|
-| OpenSpec 1.14.3 | `openspec/config.yaml`, `.agents/skills/openspec-*`. 요구사항·변경 계획·작업·완료된 변경을 관리한다. 산출물은 한국어로 작성하고 구조 제목과 SHALL/MUST는 영어로 유지한다. |
-| adrs 0.13.0 + MADR | `adrs.toml`, `docs/adr/template.md`. `docs/adr/`의 원본을 생성·검색하고 상태·대체 관계를 관리한다. 실행 파일은 `.tools/bin/adrs`에 설치한다. |
-| Log4brains 1.1.0 | `.log4brains.yml`. 같은 ADR 원본을 브라우저에서 조회한다. 쓰기는 adrs가 맡는다. |
-| adrs MCP | `.codex/config.toml`. 저장소의 adrs 실행 진입점을 사용해 Codex에서 ADR을 조회·관리한다. |
-| Context7 MCP | `.codex/config.toml`의 원격 OAuth 연결. 외부 라이브러리 문서와 사용 예시를 조회한다. 개인 로그인 정보는 Codex가 저장소 밖에 보관한다. |
-| Showboat 0.6.1 | `package.json`의 `showboat` 명령. 기존 uv로 고정 버전을 실행한다. 명시적인 보고 요청에만 사용한다. |
+| OpenSpec | [설정](../openspec/config.yaml)과 [전용 Skills](../.agents/skills/). 요구사항·변경 계획·작업·완료된 변경을 관리한다. |
+| adrs + MADR | [adrs 설정](../adrs.toml)과 [MADR 템플릿](adr/template.md). `docs/adr/`의 원본을 생성·검색하고 상태·대체 관계를 관리한다. |
+| Log4brains | [사이트 설정](../.log4brains.yml). 같은 ADR 원본을 브라우저에서 조회한다. 쓰기는 adrs가 맡는다. |
+| adrs MCP | [MCP 설정](../.codex/config.toml). 저장소의 adrs 실행 진입점을 통해 Codex에서 ADR을 조회·관리한다. |
+| Context7 MCP | 같은 MCP 설정의 원격 OAuth 연결. 외부 라이브러리 문서와 사용 예시를 조회한다. |
+| Showboat | [실행 명령](../package.json)의 `showboat`. 명시적인 보고 요청에만 사용한다. |
 
-직접 만든 개발 Skill은 아직 없다. 현재 `.agents/skills/`의 6개는 OpenSpec이 제공한 기본 Skill이다. 전역 Codex 실행 설정은 변경하지 않았다.
+Log4brains·Showboat의 고정 버전은 [Node.js 의존성과 명령](../package.json), adrs 버전은 [설치 스크립트](../scripts/setup-tools.py)에서 확인한다. `.agents/skills/`에는 OpenSpec 기본 Skill 6개가 있으며, 생성한 CLI 버전은 각 Skill의 메타데이터에 있다. 직접 만든 개발 Skill은 없다.
 
 ## 처음 준비하기
 
-현재 검증 환경은 macOS arm64, Node.js 22.17.0, Python 3, uv다. Git과 Codex CLI도 필요하다.
+검증 환경은 macOS arm64와 Node.js 22다. Python 3·uv·Git·Codex CLI·OpenSpec CLI가 준비되어 있어야 한다. 애플리케이션의 Java·Gradle 준비는 [README](../README.md)를 따른다.
 
 ```sh
 npm ci
@@ -37,9 +39,9 @@ codex mcp login context7
 
 OpenSpec·ADR 적용 여부는 [루트 작업 지침](../AGENTS.md)의 기준을 따른다.
 
-Codex에서 `$openspec-propose`를 지정하거나 Skills 목록에서 `openspec-propose`를 선택해 변경안을 정리한다. 구현에는 `openspec-apply-change`를 사용한다. 나머지 절차는 각 `SKILL.md`를 따른다.
+변경 제안은 `openspec-propose`, 구현은 `openspec-apply-change` Skill로 진행한다. 필요하면 Codex에 `$openspec-propose`처럼 직접 지정할 수 있다. 산출물 언어는 [OpenSpec 설정](../openspec/config.yaml)을 따르고, 세부 절차는 각 `SKILL.md`를 따른다.
 
-기능 요구사항과 개발 방식이 정해지면 OpenSpec 작업에 직접 만든 개발 Skill을 연결한다.
+구현·검증 후 변경을 마무리할 때는 `openspec-archive-change`로 현재 명세 반영 여부를 확인하고 변경을 보관한다. 보관 없이 명세만 반영할 때는 `openspec-sync-specs`를 사용한다.
 
 ## ADR 관리와 브라우저 조회
 
@@ -75,8 +77,7 @@ Log4brains는 adrs의 YAML 메타데이터를 기본 지원하지 않으므로 �
 
 Showboat는 Git 변경사항을 자동 분석하거나 보고서를 자동 갱신하는 도구로 사용하지 않는다.
 
-## 이후 개발 지침
+## 필요할 때 추가할 선택 사항
 
-Spring 개발용 Skill과 추가 하위 지침은 실제 개발 절차와 책임 범위가 생길 때 작성한다. 선택한 도구를 사용하기 위해 불필요한 Skill을 미리 만들지 않는다.
-
-Claude Code는 필수 대상이 아니다. Rulesync·Archgate·Quorum은 제외한다. Superpowers·GSD·OMX·Beads 등 다른 워크플로 도구는 임의로 추가하지 않는다.
+- Spring 개발용 Skill: 반복되는 개발·검증 절차가 생기면 작성하고 OpenSpec 작업에 연결한다.
+- 하위 AGENTS.md: 특정 디렉터리에만 적용할 반복 지침이 생기면 해당 범위에 작성한다.

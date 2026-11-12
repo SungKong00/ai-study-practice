@@ -47,4 +47,4 @@ curl http://localhost:8080/products
 
 테스트는 MockMvc에서 실제 서비스·JPA·H2까지 연결해 등록·조회·입력 오류를 검증한다. 실행 JAR은 `build/libs/shop-demo-0.0.1-SNAPSHOT.jar`에 생성된다.
 
-AI 도구 설정·실행 명령은 [AI 개발 환경](docs/ai-harness-plan.md), 변경 관리 기준은 [프로젝트 작업 지침](AGENTS.md)을 따른다.
+AI 도구 설정·실행 명령은 [AI 개발 환경](docs/ai-harness.md), 변경 관리 기준은 [프로젝트 작업 지침](AGENTS.md)을 따른다.
