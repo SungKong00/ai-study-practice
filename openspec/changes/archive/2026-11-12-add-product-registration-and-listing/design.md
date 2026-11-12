@@ -13,7 +13,7 @@
 ## Decisions
 
 - Java 21·Spring Boot 4.1.2·Gradle Kotlin DSL을 사용한다. 기존 Node.js 설정은 하네스용으로 유지하고 애플리케이션 실행은 Gradle Wrapper를 사용한다.
-- Spring Data JPA와 메모리 H2의 선택·대안·제약은 [ADR 0002](../../../docs/adr/0002-로컬-상품-데모는-jpa와-메모리-h2를-사용한다.md)에서 관리한다. 이 문서에 결정 배경을 복제하지 않는다.
+- Spring Data JPA와 메모리 H2의 선택·대안·제약은 [ADR 0002](../../../../docs/adr/0002-로컬-상품-데모는-jpa와-메모리-h2를-사용한다.md)에서 관리한다. 이 문서에 결정 배경을 복제하지 않는다.
 - `com.example.shop.product`에 상품 관련 controller·service·repository·entity·요청/응답 DTO를 둔다. 기능별 패키지가 첫 기능의 변경 위치를 모아 준다. 계층마다 별도 최상위 패키지나 범용 추상화를 만들지 않는다.
 - HTTP 입력 검증은 요청 DTO가 맡고, service가 저장·조회 트랜잭션을 소유한다. JPA entity를 API 응답으로 직접 노출하지 않는다. 목록은 repository 조회 시 id로 정렬한다.
 - `price`는 정수 원 단위의 Long으로 표현한다. JSON 소수·문자열의 숫자 변환은 허용하지 않는다. 입력 오류 응답은 Spring MVC의 기본 Problem Details 지원을 사용한다.
