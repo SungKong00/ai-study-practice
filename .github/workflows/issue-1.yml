@@ -1,0 +1,23 @@
+name: Issue 1 Spring verification
+on:
+  push:
+    branches: [codex/ci-issue-1]
+permissions:
+  contents: read
+jobs:
+  spring:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 01d4680f6e2bccb78edcec402fdcb99bb8c6f1d2
+          persist-credentials: false
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: git rev-parse HEAD
+      - run: ./gradlew test bootJar --console=plain
+      - name: Report test counts
+        run: grep '<testsuite ' build/test-results/test/TEST-*.xml
