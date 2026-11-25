@@ -81,3 +81,10 @@ Showboat는 Git 변경사항을 자동 분석하거나 보고서를 자동 갱�
 
 - Spring 개발용 Skill: 반복되는 개발·검증 절차가 생기면 작성하고 OpenSpec 작업에 연결한다.
 - 하위 AGENTS.md: 특정 디렉터리에만 적용할 반복 지침이 생기면 해당 범위에 작성한다.
+
+## 팀 요청에서 PR까지
+
+- 팀 운영자는 [Discord·n8n 접수 가이드](../workflows/n8n/README.md)에 따라 봇과 승인 경로를 한 번 설정한다. 팀원은 Discord 포럼에서 요청하고 담당자는 이슈 제목과 본문을 확인해 승인한다.
+- 로컬에서 “기능 요청 이슈 초안 써줘”라고 하면 [이슈 작성 스킬](../.agents/skills/issue-draft/SKILL.md)이 Discord와 같은 [기능 요청 양식](../.github/ISSUE_TEMPLATE/feature.md)을 채운다.
+- 개발자는 승인된 이슈로 OpenSpec을 작성하고 JPA 변경에 [Spring JPA 스킬](../.agents/skills/spring-jpa/SKILL.md)을 사용한다.
+- 기능 브랜치에서 “PR 초안 써줘” 또는 “PR 올려줘”라고 요청한다. [PR 준비 스킬](../.agents/skills/prepare-pr/SKILL.md)은 Spring 변경을 [로컬 리뷰](../.agents/skills/spring-change-review/SKILL.md)한 뒤 [PR 양식](../.github/pull_request_template.md)을 채운다. 제출을 요청하면 GitHub 인증과 저장소 쓰기 권한이 필요하다. PR에서 CI 결과를 확인하고 팀원이 머지를 결정한다.

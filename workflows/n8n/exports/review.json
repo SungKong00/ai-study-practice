@@ -1,0 +1,793 @@
+{
+  "name": "팀 요청 · 담당자 검토",
+  "id": "TeamRequestReview",
+  "nodes": [
+    {
+      "name": "담당자 검토",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "path": "team-review",
+        "authentication": "basicAuth",
+        "formTitle": "담당자 검토",
+        "formFields": {
+          "values": [
+            {
+              "fieldName": "request_id",
+              "fieldLabel": "요청 ID",
+              "fieldType": "text",
+              "requiredField": false
+            },
+            {
+              "fieldName": "decision",
+              "fieldLabel": "처리",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "대기 목록"
+                  },
+                  {
+                    "option": "초안 보기"
+                  },
+                  {
+                    "option": "승인"
+                  },
+                  {
+                    "option": "거절"
+                  },
+                  {
+                    "option": "수정 후 재검토"
+                  },
+                  {
+                    "option": "기존 이슈 연결"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldName": "token",
+              "fieldLabel": "승인·거절·수정 시 초안에서 복사한 검토 코드",
+              "fieldType": "text",
+              "requiredField": false
+            },
+            {
+              "fieldName": "title",
+              "fieldLabel": "수정할 제목",
+              "fieldType": "text",
+              "requiredField": false
+            },
+            {
+              "fieldName": "body",
+              "fieldLabel": "수정할 본문 (명세 근거 앞까지)",
+              "fieldType": "textarea",
+              "requiredField": false
+            },
+            {
+              "fieldName": "issue_number",
+              "fieldLabel": "기존 이슈 연결 시 번호",
+              "fieldType": "number",
+              "requiredField": false
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {
+          "path": "team-review"
+        },
+        "formDescription": "대기 목록에서 요청 ID를 찾아 초안 보기를 선택하세요. 제목·본문을 확인한 뒤 같은 폼에 검토 코드를 입력해 처리합니다."
+      },
+      "webhookId": "team-review",
+      "id": "TeamRequestReviewNode01"
+    },
+    {
+      "name": "요청 조회",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT t.*, $1::text AS wanted\nFROM (SELECT 1) s LEFT JOIN team_request t ON t.request_id=$1",
+        "options": {
+          "queryReplacement": "={{ [String($json.request_id).trim()] }}"
+        }
+      },
+      "id": "TeamRequestReviewNode02"
+    },
+    {
+      "name": "검토 결정 요청",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "typeValidation": "strict",
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ ['pending','rejected'].includes($json.state) && ['승인','거절','수정 후 재검토'].includes($('검토 입력').first().json.decision) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "TeamRequestReviewNode03"
+    },
+    {
+      "name": "검토 결정",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        -200
+      ],
+      "parameters": {
+        "jsCode": "const form = $('검토 입력').first().json;\nconst draft = $json;\nconst normalize = value => String(value ?? '').replace(/\\r\\n/g, '\\n').trim();\nconst token = normalize(form.token);\nif (token !== draft.review_token) throw Error('최신 초안을 열어 검토 코드를 확인하세요.');\nconst edit = form.decision === '수정 후 재검토';\nif (!edit && (normalize(form.title) || normalize(form.body))) throw Error('제목 또는 본문을 바꾸려면 수정 후 재검토를 선택하세요.');\nif (form.decision === '승인' && draft.state !== 'pending') throw Error('거절된 초안은 수정 후 다시 검토하세요.');\nconst footer = '\\n\\n명세 근거 (' + draft.spec_sha + ')\\n' + draft.evidence + '\\n\\n<!-- team-request:' + draft.request_id + ' -->';\nconst title = (edit && normalize(form.title)) || draft.title;\nconst body = edit && normalize(form.body) ? normalize(form.body) + footer : draft.body;\nif (title.length > 180 || body.length > 6000) throw Error('제목은 180자, 근거 포함 본문은 6000자 이내로 작성하세요.');\nconst state = edit ? 'pending' : form.decision === '승인' ? 'publishing' : 'rejected';\nreturn [{json:{id:draft.request_id, token, title, body, state}}];"
+      },
+      "id": "TeamRequestReviewNode04"
+    },
+    {
+      "name": "결정 반영",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        1200,
+        -200
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH changed AS (\n  UPDATE team_request SET title=$3, body=$4, state=$5,\n    review_token=gen_random_uuid(), revision=revision+1, reviewed_at=now()\n  WHERE request_id=$1 AND review_token=$2::uuid AND state IN ('pending','rejected')\n  RETURNING request_id, state, title, body\n) SELECT changed.* FROM (SELECT 1) s LEFT JOIN changed ON true",
+        "options": {
+          "queryReplacement": "={{ [$json.id,$json.token,$json.title,$json.body,$json.state] }}"
+        }
+      },
+      "id": "TeamRequestReviewNode05"
+    },
+    {
+      "name": "등록 권한 획득",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        -200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "typeValidation": "strict",
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.state === 'publishing' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "TeamRequestReviewNode06"
+    },
+    {
+      "name": "승인한 이슈 생성",
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1.1,
+      "position": [
+        1680,
+        -400
+      ],
+      "parameters": {
+        "owner": {
+          "__rl": true,
+          "mode": "list",
+          "value": "SungKong00"
+        },
+        "repository": {
+          "__rl": true,
+          "mode": "list",
+          "value": "ai-study-practice"
+        },
+        "resource": "issue",
+        "operation": "create",
+        "title": "={{ $json.title }}",
+        "body": "={{ $json.body }}",
+        "labels": [],
+        "assignees": []
+      },
+      "retryOnFail": false,
+      "onError": "continueRegularOutput",
+      "id": "TeamRequestReviewNode07"
+    },
+    {
+      "name": "등록 응답",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        -400
+      ],
+      "parameters": {
+        "jsCode": "const id = $('결정 반영').first().json.request_id;\nconst number = Number.isSafeInteger($json.number) && $json.number > 0 ? $json.number : null;\nreturn [{json:{id, number}}];"
+      },
+      "id": "TeamRequestReviewNode08"
+    },
+    {
+      "name": "이슈 번호 확인",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2160,
+        -400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "typeValidation": "strict",
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.number !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "TeamRequestReviewNode09"
+    },
+    {
+      "name": "이슈 연결",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        2400,
+        -200
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE team_request SET state='published', issue_number=$2\nWHERE request_id=$1 AND (state='publishing' OR (state='published' AND issue_number=$2))\nRETURNING request_id, state, issue_number",
+        "options": {
+          "queryReplacement": "={{ [$json.id,$json.number] }}"
+        }
+      },
+      "id": "TeamRequestReviewNode10"
+    },
+    {
+      "name": "기존 이슈 대조",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "typeValidation": "strict",
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.state === 'publishing' && $('검토 입력').first().json.decision === '기존 이슈 연결' && Number($('검토 입력').first().json.issue_number) > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "TeamRequestReviewNode11"
+    },
+    {
+      "name": "기존 이슈 읽기",
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        200
+      ],
+      "parameters": {
+        "owner": {
+          "__rl": true,
+          "mode": "list",
+          "value": "SungKong00"
+        },
+        "repository": {
+          "__rl": true,
+          "mode": "list",
+          "value": "ai-study-practice"
+        },
+        "resource": "issue",
+        "operation": "get",
+        "issueNumber": "={{ Number($('검토 입력').first().json.issue_number) }}"
+      },
+      "id": "TeamRequestReviewNode12"
+    },
+    {
+      "name": "등록 내용 대조",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        200
+      ],
+      "parameters": {
+        "jsCode": "const draft = $('요청 조회').first().json;\nif ($json.pull_request || $json.title !== draft.title || $json.body !== draft.body || !Number.isSafeInteger($json.number)) {\n  throw Error('승인한 제목·본문과 기존 이슈가 일치하는지 확인하세요.');\n}\nreturn [{json:{id:draft.request_id, number:$json.number}}];"
+      },
+      "id": "TeamRequestReviewNode13"
+    },
+    {
+      "name": "검토 상태",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const action = $('검토 입력').first().json.decision;\nconst state = $json.state ?? ($json.id ? 'publishing' : null);\nlet message;\nif (action === '초안 보기' && ['pending','rejected'].includes(state)) {\n  message = [$json.request_id + ' · 버전 ' + $json.revision, $json.title, $json.body,\n    '검토 코드: ' + $json.review_token, '담당자 검토 폼에 이 코드와 처리할 동작을 입력하세요.'].join('\\n\\n');\n} else {\n  const messages = {\n    answered:'명세 답변으로 끝난 요청입니다.', pending:'초안이 대기 중입니다. 초안 보기에서 검토 코드를 확인하세요.',\n    rejected:'거절했습니다. 수정 후 재검토할 수 있습니다.', published:'연결된 이슈 번호: ' + $json.issue_number,\n    publishing:'생성 결과 확인 중입니다. GitHub에서 요청 ID로 기존 이슈를 찾아 번호와 함께 기존 이슈 연결을 선택하세요.'\n  };\n  message = messages[state] ?? '요청이 없거나 다른 담당자가 먼저 처리했습니다. 초안을 다시 조회하세요.';\n}\nreturn [{json:{...$json, state, message}}];"
+      },
+      "id": "TeamRequestReviewNode14"
+    },
+    {
+      "name": "처리 결과",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        2880,
+        0
+      ],
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "처리 결과",
+        "completionMessage": "={{ '<pre>' + String($json.message).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</pre>' }}",
+        "options": {}
+      },
+      "id": "TeamRequestReviewNode15"
+    },
+    {
+      "name": "대기 목록 요청",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "typeValidation": "strict",
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.decision === '대기 목록' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "TeamRequestReviewNode17"
+    },
+    {
+      "name": "승인 대기 목록",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        480,
+        420
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT coalesce(string_agg(request_id || ' · ' || label || ' · ' || title, E'\\n' ORDER BY created_at, request_id), '대기 중인 요청이 없습니다.') AS message\nFROM (SELECT request_id, title, created_at,\n    CASE WHEN state='pending' THEN '승인 대기' ELSE '생성 결과 확인' END AS label\n  FROM team_request WHERE state IN ('pending','publishing')\n  ORDER BY created_at, request_id LIMIT 30) AS queue",
+        "options": {}
+      },
+      "id": "TeamRequestReviewNode18"
+    },
+    {
+      "name": "폼 입력",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        230,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return [{json:{...$json, source:'form'}}];"
+      },
+      "id": "8657de4b-f8a7-4182-aed3-3b6a3e671e57"
+    },
+    {
+      "name": "검토 입력",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        -220
+      ],
+      "parameters": {
+        "jsCode": "return [{json:$json}];"
+      },
+      "id": "d3bd632b-e569-40f9-99c4-6191528ce12a"
+    },
+    {
+      "name": "Discord 응답 여부",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2680,
+        -200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "typeValidation": "strict",
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('검토 입력').first().json.source === 'discord' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4d54d233-3e07-4aa5-970e-faa2dc4393c9"
+    },
+    {
+      "name": "Discord 결과",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2920,
+        -320
+      ],
+      "parameters": {
+        "jsCode": "const r = $json;\nreturn [{json:{state:r.state ?? 'missing', title:r.title, body:r.body, token:r.review_token, issue_number:r.issue_number}}];"
+      },
+      "id": "f7e4a918-605b-46c6-8c5e-6d80919942e6"
+    },
+    {
+      "id": "c5a0cdc9-893d-4bc5-868c-b79c077ea5dd",
+      "name": "서비스 검토",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        230,
+        -220
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    }
+  ],
+  "connections": {
+    "담당자 검토": {
+      "main": [
+        [
+          {
+            "node": "폼 입력",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "요청 조회": {
+      "main": [
+        [
+          {
+            "node": "검토 결정 요청",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "검토 결정 요청": {
+      "main": [
+        [
+          {
+            "node": "검토 결정",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "기존 이슈 대조",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "검토 결정": {
+      "main": [
+        [
+          {
+            "node": "결정 반영",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "결정 반영": {
+      "main": [
+        [
+          {
+            "node": "등록 권한 획득",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "등록 권한 획득": {
+      "main": [
+        [
+          {
+            "node": "승인한 이슈 생성",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "검토 상태",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "승인한 이슈 생성": {
+      "main": [
+        [
+          {
+            "node": "등록 응답",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "등록 응답": {
+      "main": [
+        [
+          {
+            "node": "이슈 번호 확인",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "이슈 번호 확인": {
+      "main": [
+        [
+          {
+            "node": "이슈 연결",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "검토 상태",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "기존 이슈 대조": {
+      "main": [
+        [
+          {
+            "node": "기존 이슈 읽기",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "검토 상태",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "기존 이슈 읽기": {
+      "main": [
+        [
+          {
+            "node": "등록 내용 대조",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "등록 내용 대조": {
+      "main": [
+        [
+          {
+            "node": "이슈 연결",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "이슈 연결": {
+      "main": [
+        [
+          {
+            "node": "검토 상태",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "검토 상태": {
+      "main": [
+        [
+          {
+            "node": "Discord 응답 여부",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "대기 목록 요청": {
+      "main": [
+        [
+          {
+            "node": "승인 대기 목록",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "요청 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "승인 대기 목록": {
+      "main": [
+        [
+          {
+            "node": "처리 결과",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "폼 입력": {
+      "main": [
+        [
+          {
+            "node": "검토 입력",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "검토 입력": {
+      "main": [
+        [
+          {
+            "node": "대기 목록 요청",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Discord 응답 여부": {
+      "main": [
+        [
+          {
+            "node": "Discord 결과",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "처리 결과",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "서비스 검토": {
+      "main": [
+        [
+          {
+            "node": "검토 입력",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all"
+  }
+}
