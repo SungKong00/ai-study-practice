@@ -1,0 +1,190 @@
+{
+  "name": "팀 요청 · Discord 연결",
+  "id": "TeamRequestDiscord",
+  "nodes": [
+    {
+      "name": "Discord 연결",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        -420
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "discord-team-request",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "0de09eb2-7e04-47a7-bdb8-e7eb72e84dd8",
+      "webhookId": "908f4d28-e835-4fa2-83f4-d19886b44054"
+    },
+    {
+      "name": "Discord 입력",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        -420
+      ],
+      "parameters": {
+        "jsCode": "const b = $json.body;\nif (!b || !/^discord:[0-9]{15,22}$/.test(b.request_id) || !['draft','status','approve'].includes(b.action)) throw Error('잘못된 요청입니다.');\nconst base = {source:'discord', request_id:b.request_id, decision:b.action === 'approve' ? '승인' : '초안 보기', token:b.token ?? ''};\nif (b.action !== 'draft') return [{json:base}];\nfor (const [key, limit] of Object.entries({title:180, body:2500, evidence:500, request_text:2000})) {\n  if (typeof b[key] !== 'string' || !b[key].trim() || b[key].length > limit) throw Error('초안 필드를 확인하세요: ' + key);\n}\nif (!/^[0-9a-f]{40}$/.test(b.spec_sha)) throw Error('명세 버전을 확인하세요.');\nconst body = b.body + '\\n\\n명세 근거 (' + b.spec_sha + ')\\n' + b.evidence + '\\n\\n<!-- team-request:' + b.request_id + ' -->';\nreturn [{json:{...base, draft:true, title:b.title, body, evidence:b.evidence, spec_sha:b.spec_sha, request_text:b.request_text}}];"
+      },
+      "id": "69e63cac-5359-4985-b854-2a6a1d7e0de3"
+    },
+    {
+      "name": "Discord 초안 여부",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        -420
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "typeValidation": "strict",
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.draft === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9e1a554a-f7cf-4a46-bc29-e8b5c6dc0255"
+    },
+    {
+      "name": "Discord 초안 보관",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        660,
+        -520
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO team_request (request_id,request_text,spec_sha,category,evidence,answer,title,body,state)\nVALUES ($1,$2,$3,'새 기능',$4,'Discord 대화에서 구체화',$5,$6,'pending')\nON CONFLICT (request_id) DO NOTHING;",
+        "options": {
+          "queryReplacement": "={{ [$json.request_id,$json.request_text,$json.spec_sha,$json.evidence,$json.title,$json.body] }}"
+        }
+      },
+      "id": "8716e99f-3003-4787-a6a2-85a69ce6cbba",
+      "alwaysOutputData": true
+    },
+    {
+      "name": "저장 후 조회",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        -520
+      ],
+      "parameters": {
+        "jsCode": "return [{json:$('Discord 입력').first().json}];"
+      },
+      "id": "33cf4115-d67b-4d74-8b59-edadc48d1d36"
+    },
+    {
+      "id": "e9187e8a-1f2e-406a-bee7-696e4e2762e5",
+      "name": "공통 검토 호출",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1080,
+        -220
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "TeamRequestReview",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Discord 연결": {
+      "main": [
+        [
+          {
+            "node": "Discord 입력",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Discord 입력": {
+      "main": [
+        [
+          {
+            "node": "Discord 초안 여부",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Discord 초안 여부": {
+      "main": [
+        [
+          {
+            "node": "Discord 초안 보관",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "공통 검토 호출",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Discord 초안 보관": {
+      "main": [
+        [
+          {
+            "node": "저장 후 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "저장 후 조회": {
+      "main": [
+        [
+          {
+            "node": "공통 검토 호출",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all"
+  }
+}
