@@ -21,8 +21,9 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public List<ProductResponse> list(Sort sort) {
-        return products.findAll(sort).stream()
+    public List<ProductResponse> list(String name, Sort sort) {
+        List<Product> matches = name == null ? products.findAll(sort) : products.findByName(name, sort);
+        return matches.stream()
                 .map(ProductResponse::from)
                 .toList();
     }

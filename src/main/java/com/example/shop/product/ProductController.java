@@ -32,7 +32,17 @@ public class ProductController {
 
     @GetMapping
     public List<ProductResponse> list(@RequestParam MultiValueMap<String, String> params) {
-        return products.list(sortOrder(params.get("sort")));
+        return products.list(nameFilter(params.get("name")), sortOrder(params.get("sort")));
+    }
+
+    private static String nameFilter(List<String> values) {
+        if (values == null) {
+            return null;
+        }
+        if (values.size() != 1 || values.getFirst() == null || values.getFirst().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "name must be one non-blank value");
+        }
+        return values.getFirst();
     }
 
     private static Sort sortOrder(List<String> values) {
