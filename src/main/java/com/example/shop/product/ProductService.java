@@ -1,6 +1,7 @@
 package com.example.shop.product;
 
 import java.util.List;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,8 +21,8 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public List<ProductResponse> list() {
-        return products.findAllByOrderByIdAsc().stream()
+    public List<ProductResponse> list(Sort sort) {
+        return products.findAll(sort).stream()
                 .map(ProductResponse::from)
                 .toList();
     }
