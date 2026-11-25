@@ -46,6 +46,8 @@ curl http://localhost:8080/products
 
 ## 빌드와 검증
 
+[Spring PR](.github/workflows/spring-pr.yml)은 PR을 열거나 커밋을 추가하면 Java 21에서 테스트와 실행 JAR 빌드를 검증한다.
+
 ```sh
 ./gradlew test
 ./gradlew bootJar
