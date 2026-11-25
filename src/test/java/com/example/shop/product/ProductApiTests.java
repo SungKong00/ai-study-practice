@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -89,6 +90,34 @@ class ProductApiTests {
                 .andExpect(jsonPath("$[0].price").value(2000))
                 .andExpect(jsonPath("$[1].id").value(secondId))
                 .andExpect(jsonPath("$[1].price").value(1000));
+    }
+
+    @Test
+    void sortsByPriceInBothDirectionsBreakingTiesByAscendingId() throws Exception {
+        long first = register("첫 상품", 200);
+        long cheap = register("저렴한 상품", 100);
+        long third = register("세 번째 상품", 200);
+
+        mvc.perform(get("/products?sort=price,asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(3)))
+                .andExpect(jsonPath("$[0].id").value(cheap))
+                .andExpect(jsonPath("$[1].id").value(first))
+                .andExpect(jsonPath("$[2].id").value(third));
+        mvc.perform(get("/products?sort=price,desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(3)))
+                .andExpect(jsonPath("$[0].id").value(first))
+                .andExpect(jsonPath("$[1].id").value(third))
+                .andExpect(jsonPath("$[2].id").value(cheap));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"sort=name,asc", "sort=price,up", "sort=", "sort",
+            "sort=price,asc&sort=price,desc", "sort=price,asc&sort=price,asc"})
+    void rejectsInvalidSort(String query) throws Exception {
+        mvc.perform(get("/products?" + query))
+                .andExpect(status().isBadRequest());
     }
 
     @ParameterizedTest
