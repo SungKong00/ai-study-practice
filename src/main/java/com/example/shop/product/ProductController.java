@@ -20,7 +20,10 @@ public class ProductController {
 
     private final ProductService products;
 
-    public ProductController(ProductService products) {
+    private final ProductRepository repository;
+
+    public ProductController(ProductService products, ProductRepository repository) {
+        this.repository = repository;
         this.products = products;
     }
 
@@ -33,6 +36,24 @@ public class ProductController {
     @GetMapping
     public List<ProductResponse> list(@RequestParam MultiValueMap<String, String> params) {
         return products.list(sortOrder(params.get("sort")));
+    }
+
+    @GetMapping("/preview")
+    public List<ProductResponse> preview(@RequestParam MultiValueMap<String, String> params) {
+        List<String> values = params.get("sort");
+        Sort order = Sort.by("id");
+        if (values != null) {
+            if (values.size() != 1) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sort must appear only once");
+            }
+            order = switch (values.getFirst()) {
+                case "price,asc" -> Sort.by("price").ascending().and(Sort.by("id"));
+                case "price,desc" -> Sort.by("price").descending().and(Sort.by("id"));
+                case null, default -> throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "sort must be price,asc or price,desc");
+            };
+        }
+        return repository.findAll(order).stream().map(ProductResponse::from).toList();
     }
 
     private static Sort sortOrder(List<String> values) {
