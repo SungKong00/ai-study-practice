@@ -25,6 +25,9 @@ Java 21을 사용한다. Gradle은 별도 설치 없이 저장소의 Wrapper를 
 | `POST /products` | 상품 등록 | `201`과 등록한 상품 객체 |
 | `GET /products` | 상품 목록 조회 | `200`과 id 오름차순 배열. 상품이 없으면 `[]` |
 | `GET /products?sort=price,asc` 또는 `price,desc` | 가격 오름차순 또는 내림차순 조회 | `200`과 상품 배열. 같은 가격은 id 오름차순 |
+| `GET /products?name=Note` | 이름 전체가 일치하는 상품 조회. 기존 정렬과 조합 가능 | 일치 항목 전체 또는 빈 배열 |
+
+`name`은 대소문자와 앞뒤 공백을 구분한다. 빈 값, 공백만 있는 값, 반복된 값은 `400`으로 응답한다.
 
 `sort`는 한 번만 지정할 수 있다. 빈 값, 미지원 값, 반복된 파라미터는 `400`으로 응답한다.
 
@@ -42,6 +45,8 @@ curl http://localhost:8080/products
 필수 값 누락·잘못된 타입·이름 길이 위반·음수 가격·잘못된 JSON은 `400`과 `application/problem+json` 오류로 응답하고 저장하지 않는다. 현재 API는 등록과 목록 조회를 제공한다.
 
 ## 빌드와 검증
+
+[Spring PR](.github/workflows/spring-pr.yml)은 PR을 열거나 커밋을 추가하면 Java 21에서 테스트와 실행 JAR 빌드를 검증한다.
 
 ```sh
 ./gradlew test

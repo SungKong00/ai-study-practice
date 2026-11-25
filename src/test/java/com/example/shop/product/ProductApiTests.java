@@ -112,6 +112,48 @@ class ProductApiTests {
                 .andExpect(jsonPath("$[2].id").value(cheap));
     }
 
+    @Test
+    void filtersByExactNameAndSortsAllMatches() throws Exception {
+        long first = register("Note", 200);
+        long cheap = register("Note", 100);
+        long third = register("Note", 200);
+        register("Notebook", 50);
+        register("note", 50);
+        long padded = register(" Note ", 50);
+        register("Note ", 50);
+
+        mvc.perform(get("/products").param("name", "Note"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(3)))
+                .andExpect(jsonPath("$[0].id").value(first))
+                .andExpect(jsonPath("$[1].id").value(cheap))
+                .andExpect(jsonPath("$[2].id").value(third));
+        mvc.perform(get("/products").param("name", "Note").param("sort", "price,asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(3)))
+                .andExpect(jsonPath("$[0].id").value(cheap))
+                .andExpect(jsonPath("$[1].id").value(first))
+                .andExpect(jsonPath("$[2].id").value(third));
+        mvc.perform(get("/products").param("name", " Note "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].id").value(padded));
+        mvc.perform(get("/products").param("name", "Not"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"name", "name=", "name=A&name=A", "name=&sort=price,asc", "name=A&sort=invalid"})
+    void rejectsInvalidSearch(String query) throws Exception {
+        mvc.perform(get("/products?" + query)).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsWhitespaceOnlyName() throws Exception {
+        mvc.perform(get("/products").param("name", "   ")).andExpect(status().isBadRequest());
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"sort=name,asc", "sort=price,up", "sort=", "sort",
             "sort=price,asc&sort=price,desc", "sort=price,asc&sort=price,asc"})
