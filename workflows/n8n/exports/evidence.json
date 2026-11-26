@@ -1,0 +1,452 @@
+{
+  "name": "상품 근거 조회",
+  "id": "TeamRequestEvidence",
+  "nodes": [
+    {
+      "id": "4781d69f-c8f6-4a49-9b55-26c55f45a425",
+      "name": "근거 요청",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "name": "기준 커밋",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "url": "https://api.github.com/repos/SungKong00/ai-study-practice/commits/main",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "3cbadc35-b791-4bcc-bcb8-b333847b33b1"
+    },
+    {
+      "name": "캐시 조회",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH expired AS (DELETE FROM team_evidence_cache WHERE last_used < now()-interval '7 days'), hit AS (\nUPDATE team_evidence_cache SET last_used=now() WHERE repo=$1 AND commit_sha=$2 AND scope='product-v1' AND last_used >= now()-interval '7 days' RETURNING snapshot)\nSELECT $1::text AS repo,$2::text AS commit,(SELECT snapshot FROM hit) AS snapshot",
+        "options": {
+          "queryReplacement": "={{ ['SungKong00/ai-study-practice',$json.sha] }}"
+        }
+      },
+      "id": "c27d267d-2bae-4fcc-9cb7-971245c3e3c3"
+    },
+    {
+      "name": "캐시 있음",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "typeValidation": "strict",
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.snapshot != null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "611e32f3-69ed-4d77-b551-578933535374"
+    },
+    {
+      "name": "캐시 반환",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return [{json:$json.snapshot}];"
+      },
+      "id": "859434bb-6044-4f03-8e3d-e601ec8c443d"
+    },
+    {
+      "name": "커밋 트리",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "url": "=https://api.github.com/repos/SungKong00/ai-study-practice/git/trees/{{ $('기준 커밋').first().json.commit.tree.sha }}?recursive=1",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "d6b1f885-75a6-4958-9fba-3eefd89bf760"
+    },
+    {
+      "name": "허용 경로",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ],
+      "parameters": {
+        "jsCode": "if ($json.truncated || !Array.isArray($json.tree)) throw Error('상품 근거 목록 불완전');\nconst paths = $json.tree.filter(e => e.type === 'blob' && e.mode === '100644' && (\n  /^openspec\\/specs\\/product-[^/]+\\/spec\\.md$/.test(e.path) ||\n  /^src\\/(main|test)\\/java\\/com\\/example\\/shop\\/product\\/.+\\.java$/.test(e.path) ||\n  ['src/main/java/com/example/shop/JsonConfiguration.java','src/main/resources/application.properties'].includes(e.path)));\nif (!paths.some(e => e.path.startsWith('openspec/')) || !paths.some(e => e.path.startsWith('src/main/java/'))) throw Error('상품 근거 누락');\nreturn paths.map(e => ({json:{path:e.path,sha:e.sha}}));"
+      },
+      "id": "6f31ea72-6aa2-4104-8bda-ee08e953e4fe"
+    },
+    {
+      "name": "근거 파일",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        0
+      ],
+      "parameters": {
+        "url": "=https://api.github.com/repos/SungKong00/ai-study-practice/git/blobs/{{ $json.sha }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "748d8800-86d0-4d5b-abd0-c3f6c3a13bb8"
+    },
+    {
+      "name": "목차 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const paths = $('허용 경로').all();\nconst {commit,repo} = $('캐시 조회').first().json;\nconst docs={},code={},tests={},index=[];\nfor (const [i,item] of $input.all().entries()) {\n  const {path,sha}=paths[i].json;\n  const blob=item.json;\n  if (blob.sha !== sha || blob.encoding !== 'base64') throw Error('파일 버전 불일치');\n  let content=Buffer.from(blob.content,'base64').toString('utf8');\n  if (path.endsWith('application.properties')) content=content.split('\\n').filter(s => /^spring\\.(mvc\\.problemdetails\\.enabled|jackson\\.(deserialization\\.accept-float-as-int|mapper\\.allow-coercion-of-scalars)(?==))/.test(s)).join('\\n');\n  if (path.startsWith('openspec/')) {\n    docs[path]=content;\n    index.push({path,sha,purpose:content.match(/## Purpose\\s+([\\s\\S]*?)(?=\\n## |$)/)?.[1]?.trim(),headings:content.split('\\n').filter(s => /^#{3,4} (Requirement|Scenario):/.test(s))});\n  } else if(path.startsWith('src/test/')) tests[path]=content;\n  else code[path]=content;\n}\nreturn [{json:{repo,commit,docs,code,tests,index}}];"
+      },
+      "id": "6d22a34d-3e0c-473d-9f8c-d1a47c72f8df"
+    },
+    {
+      "name": "캐시 저장",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        1760,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO team_evidence_cache(repo,commit_sha,scope,snapshot) VALUES ($1,$2,'product-v1',$3::jsonb || jsonb_build_object('scope_digest',md5((($3::jsonb)-'commit'-'repo')::text)))\nON CONFLICT(repo,commit_sha,scope) DO UPDATE SET last_used=now() RETURNING snapshot",
+        "options": {
+          "queryReplacement": "={{ [$json.repo,$json.commit,JSON.stringify($json)] }}"
+        }
+      },
+      "id": "ee8c90ea-d5fe-4c42-a5ba-ccf11ce8ef5d"
+    },
+    {
+      "name": "근거 반환",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return [{json:$json.snapshot}];"
+      },
+      "id": "f9dc4d1f-92c5-4e4e-99b5-aa1fbde939ac"
+    },
+    {
+      "name": "목록 잘림",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        260
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "typeValidation": "strict",
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.truncated === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "cf6732ff-8328-49f7-ba45-7fe71c923701"
+    },
+    {
+      "name": "상위 트리",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        260
+      ],
+      "parameters": {
+        "url": "=https://api.github.com/repos/SungKong00/ai-study-practice/git/trees/{{ $('기준 커밋').first().json.commit.tree.sha }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "b1cd1baf-9721-45f5-b22f-9bdadf7c57b5"
+    },
+    {
+      "name": "상품 루트",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        260
+      ],
+      "parameters": {
+        "jsCode": "const roots=$json.tree?.filter(e=>e.type==='tree' && ['openspec','src'].includes(e.path));\nif (!roots || roots.length!==2 || $json.truncated) throw Error('상품 루트 조회 불완전');\nreturn roots.map(e=>({json:{path:e.path,sha:e.sha}}));"
+      },
+      "id": "304ca06a-469b-4014-9514-a6aaf802cecb"
+    },
+    {
+      "name": "하위 트리",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        260
+      ],
+      "parameters": {
+        "url": "=https://api.github.com/repos/SungKong00/ai-study-practice/git/trees/{{ $json.sha }}?recursive=1",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "d6cbfa94-54a8-44b6-a2a4-c48041bb4432"
+    },
+    {
+      "name": "상품 트리 결합",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        260
+      ],
+      "parameters": {
+        "jsCode": "const roots=$('상품 루트').all(), tree=[];\nfor (const [i,{json:result}] of $input.all().entries()) {\n  if (result.truncated || result.sha!==roots[i].json.sha) throw Error('제품 하위 목록 불완전');\n  for (const item of result.tree) tree.push({...item,path:roots[i].json.path+'/'+item.path});\n}\nreturn [{json:{tree,truncated:false}}];"
+      },
+      "id": "b30a6fd4-804a-46d2-91a2-8630c10f4fab"
+    }
+  ],
+  "connections": {
+    "근거 요청": {
+      "main": [
+        [
+          {
+            "node": "기준 커밋",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "기준 커밋": {
+      "main": [
+        [
+          {
+            "node": "캐시 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "캐시 조회": {
+      "main": [
+        [
+          {
+            "node": "캐시 있음",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "캐시 있음": {
+      "main": [
+        [
+          {
+            "node": "캐시 반환",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "커밋 트리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "커밋 트리": {
+      "main": [
+        [
+          {
+            "node": "목록 잘림",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "허용 경로": {
+      "main": [
+        [
+          {
+            "node": "근거 파일",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "근거 파일": {
+      "main": [
+        [
+          {
+            "node": "목차 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "목차 구성": {
+      "main": [
+        [
+          {
+            "node": "캐시 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "캐시 저장": {
+      "main": [
+        [
+          {
+            "node": "근거 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "목록 잘림": {
+      "main": [
+        [
+          {
+            "node": "상위 트리",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "허용 경로",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "상위 트리": {
+      "main": [
+        [
+          {
+            "node": "상품 루트",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "상품 루트": {
+      "main": [
+        [
+          {
+            "node": "하위 트리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "하위 트리": {
+      "main": [
+        [
+          {
+            "node": "상품 트리 결합",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "상품 트리 결합": {
+      "main": [
+        [
+          {
+            "node": "허용 경로",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false
+  }
+}
