@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+while read -r local_ref local_sha remote_ref remote_sha; do
+    case "$local_sha" in 0000000000000000000000000000000000000000) continue;; esac
+    case "$remote_sha" in 0000000000000000000000000000000000000000) remote_sha=$(git merge-base "$local_sha" refs/remotes/origin/main);; esac
+    scripts/check-harness "$remote_sha" "$local_sha" hook
+done
