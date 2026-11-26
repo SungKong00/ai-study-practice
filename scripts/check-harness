@@ -1,0 +1,31 @@
+#!/bin/sh
+set -eu
+base=$1
+head=${2:-HEAD}
+paths=$(git diff --name-only "$base" "$head")
+if echo "$paths" | grep -Eq '^(openspec/|\.agents/skills/)'; then
+    openspec validate --all --strict
+fi
+if [ "${3:-ci}" = ci ] && echo "$paths" | grep -Eq '^(workflows/|tests/triage|\.agents/skills/|\.github/ISSUE_TEMPLATE/)'; then
+    node --test tests/triage*.test.cjs
+    python3 -m unittest discover -s tests -p 'triage*_test.py'
+fi
+
+python3 - "$base" "$head" <<'PYLINK'
+import os, posixpath, re, subprocess, sys
+base, head = sys.argv[1:]
+def git(*args):
+    return subprocess.check_output(["git", *args])
+files = set(os.fsdecode(git("ls-tree", "-rz", "--name-only", head)).split("\0"))
+dirs = {posixpath.dirname(path) for path in files}
+for path in os.fsdecode(git("diff", "--name-only", "-z", "--diff-filter=ACMR", base, head)).split("\0"):
+    if not path.endswith(".md"):
+        continue
+    for link in re.findall(r"\]\(([^()\s]+)\)", git("show", head + ":" + path).decode()):
+        target = link.split("#")[0]
+        if not target or ":" in target or target.startswith("/"):
+            continue
+        dest = posixpath.normpath(posixpath.join(posixpath.dirname(path), target))
+        if dest not in files and dest not in dirs and not any(f.startswith(dest + "/") for f in files):
+            raise SystemExit(f"{path}: 연결 대상이 없습니다: {link}")
+PYLINK

@@ -4,21 +4,16 @@
   "nodes": [
     {
       "name": "Discord 연결",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
       "position": [
         0,
         -420
       ],
       "parameters": {
-        "httpMethod": "POST",
-        "path": "discord-team-request",
-        "authentication": "headerAuth",
-        "responseMode": "lastNode",
-        "options": {}
+        "inputSource": "passthrough"
       },
-      "id": "0de09eb2-7e04-47a7-bdb8-e7eb72e84dd8",
-      "webhookId": "908f4d28-e835-4fa2-83f4-d19886b44054"
+      "id": "0de09eb2-7e04-47a7-bdb8-e7eb72e84dd8"
     },
     {
       "name": "Discord 입력",
@@ -29,7 +24,7 @@
         -420
       ],
       "parameters": {
-        "jsCode": "const b = $json.body;\nif (!b || !/^discord:[0-9]{15,22}$/.test(b.request_id) || !['draft','status','approve'].includes(b.action)) throw Error('잘못된 요청입니다.');\nconst base = {source:'discord', request_id:b.request_id, decision:b.action === 'approve' ? '승인' : '초안 보기', token:b.token ?? ''};\nif (b.action !== 'draft') return [{json:base}];\nfor (const [key, limit] of Object.entries({title:180, body:2500, evidence:500, request_text:2000})) {\n  if (typeof b[key] !== 'string' || !b[key].trim() || b[key].length > limit) throw Error('초안 필드를 확인하세요: ' + key);\n}\nif (!/^[0-9a-f]{40}$/.test(b.spec_sha)) throw Error('명세 버전을 확인하세요.');\nconst body = b.body + '\\n\\n명세 근거 (' + b.spec_sha + ')\\n' + b.evidence + '\\n\\n<!-- team-request:' + b.request_id + ' -->';\nreturn [{json:{...base, draft:true, title:b.title, body, evidence:b.evidence, spec_sha:b.spec_sha, request_text:b.request_text}}];"
+        "jsCode": "const b = $json.body;\nif (!b || !/^discord:[0-9]{15,22}$/.test(b.request_id) || !['draft','status','approve','edit'].includes(b.action)) throw Error('잘못된 요청입니다.');\nconst base = {source:'discord', request_id:b.request_id, decision:b.action === 'approve' ? '승인' : b.action === 'edit' ? '수정 후 재검토' : '초안 보기', token:b.token ?? ''};\nif (b.action === 'edit') return [{json:{...base,title:b.title,body:b.body}}];\nif (b.action !== 'draft') return [{json:base}];\nfor (const [key, limit] of Object.entries({title:180, body:4600, evidence:500, request_text:2000})) {\n  if (typeof b[key] !== 'string' || !b[key].trim() || b[key].length > limit) throw Error('초안 필드를 확인하세요: ' + key);\n}\nif (!/^[0-9a-f]{40}$/.test(b.spec_sha)) throw Error('명세 버전을 확인하세요.');\nconst body = b.body + '\\n\\n명세 근거 (' + b.spec_sha + ')\\n' + b.evidence + '\\n\\n<!-- team-request:' + b.request_id + ' -->';\nreturn [{json:{...base, draft:true, title:b.title, body, evidence:b.evidence, basis_commit:b.basis_commit ?? null, previous_token:b.previous_token ?? null, scope_digest:b.scope_digest ?? null, target_repo:b.target_repo ?? null, draft_fields:b.draft_fields ?? null, evidence_items:b.evidence_items ?? null, spec_sha:b.spec_sha, request_text:b.request_text}}];"
       },
       "id": "69e63cac-5359-4985-b854-2a6a1d7e0de3"
     },
@@ -75,9 +70,9 @@
       ],
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO team_request (request_id,request_text,spec_sha,category,evidence,answer,title,body,state)\nVALUES ($1,$2,$3,'새 기능',$4,'Discord 대화에서 구체화',$5,$6,'pending')\nON CONFLICT (request_id) DO NOTHING;",
+        "query": "INSERT INTO team_request (request_id,request_text,spec_sha,category,evidence,answer,title,body,state,basis_commit,target_repo,draft_fields,evidence_items,scope_digest)\nVALUES ($1,$2,$3,'새 기능',$4,'Discord 대화에서 구체화',$5,$6,'pending',$7,$8,$9::jsonb,$10::jsonb,$11)\nON CONFLICT (request_id) DO UPDATE SET request_text=excluded.request_text,spec_sha=excluded.spec_sha,\ncategory=excluded.category,evidence=excluded.evidence,answer=excluded.answer,title=excluded.title,body=excluded.body,state='pending',\nbasis_commit=excluded.basis_commit,target_repo=excluded.target_repo,draft_fields=excluded.draft_fields,\nevidence_items=excluded.evidence_items,scope_digest=excluded.scope_digest,verified_commit=NULL,\nrevision=team_request.revision+1,review_token=gen_random_uuid()\nWHERE team_request.state='answered' AND team_request.review_token=$12::uuid;",
         "options": {
-          "queryReplacement": "={{ [$json.request_id,$json.request_text,$json.spec_sha,$json.evidence,$json.title,$json.body] }}"
+          "queryReplacement": "={{ [$json.request_id,$json.request_text,$json.spec_sha,$json.evidence,$json.title,$json.body,$json.basis_commit,$json.target_repo,JSON.stringify($json.draft_fields),JSON.stringify($json.evidence_items),$json.scope_digest,$json.previous_token] }}"
         }
       },
       "id": "8716e99f-3003-4787-a6a2-85a69ce6cbba",
@@ -115,6 +110,158 @@
           "waitForSubWorkflow": true
         }
       }
+    },
+    {
+      "name": "근거 조회 여부",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "typeValidation": "strict",
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.action === 'evidence' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8f98fed2-8087-4f7f-8417-17e02a76114e"
+    },
+    {
+      "id": "4b000598-344a-42e2-98c4-57486cd8f933",
+      "name": "상품 근거 요청",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "TeamRequestEvidence",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "name": "모델 예약 여부",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "typeValidation": "strict",
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.action === 'reserve' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "081c8e6b-411c-4391-9889-7cd5d69e81aa"
+    },
+    {
+      "name": "모델 예약",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        660,
+        -280
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM team_model_reserve($1,$2,$3,$4)",
+        "options": {
+          "queryReplacement": "={{ [$json.body.request_id + ':' + $json.body.turn,$json.body.model,$json.body.input_bound,$json.body.output_bound] }}"
+        }
+      },
+      "id": "03f6b9e3-2f28-49e4-8389-aadab9d20e85",
+      "alwaysOutputData": true
+    },
+    {
+      "name": "모델 정산 여부",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "typeValidation": "strict",
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.action === 'settle' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "728e8662-fc3a-41c6-b650-0be4ffe4a46a"
+    },
+    {
+      "name": "모델 정산",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        660,
+        -280
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT team_model_settle($1::uuid,$2,$3) AS settled",
+        "options": {
+          "queryReplacement": "={{ [$json.body.ticket,$json.body.input_tokens,$json.body.output_tokens] }}"
+        }
+      },
+      "id": "c0e8be3f-4463-4532-99de-1d2854e49c51",
+      "alwaysOutputData": true
     }
   ],
   "connections": {
@@ -122,7 +269,7 @@
       "main": [
         [
           {
-            "node": "Discord 입력",
+            "node": "모델 예약 여부",
             "type": "main",
             "index": 0
           }
@@ -179,12 +326,67 @@
           }
         ]
       ]
+    },
+    "근거 조회 여부": {
+      "main": [
+        [
+          {
+            "node": "상품 근거 요청",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Discord 입력",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "모델 예약 여부": {
+      "main": [
+        [
+          {
+            "node": "모델 예약",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "모델 정산 여부",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "모델 정산 여부": {
+      "main": [
+        [
+          {
+            "node": "모델 정산",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "근거 조회 여부",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "saveDataSuccessExecution": "all",
-    "saveDataErrorExecution": "all"
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false
   }
 }

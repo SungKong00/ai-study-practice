@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+"""제품 PR의 원본 완료 예시를 열고 현재 작업 트리의 명세·Spring 테스트를 검사한다."""
+import argparse
+import json
+import re
+import subprocess
+from pathlib import Path
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("issue", type=int)
+    parser.add_argument("change")
+    args = parser.parse_args()
+    if args.issue < 1 or not re.fullmatch("[a-z0-9][a-z0-9-]*", args.change):
+        parser.error("이슈 번호와 OpenSpec 변경명을 확인하세요.")
+    pr_root = Path(subprocess.check_output(["git","rev-parse","--show-toplevel"], text=True).strip())
+    issue = json.loads(subprocess.check_output(
+        ["gh","issue","view",str(args.issue),"--json","url,body"], cwd=pr_root, text=True))
+    section = re.search(r"^## 완료됐다고 볼 예시[ \t]*\n(.*?)(?=^## |^구현 근거\s*$|^명세 근거|^<!-- team-request:|\Z)",
+                        issue["body"].replace("\r\n", "\n"), re.M | re.S)
+    if not section or not section[1].strip():
+        raise SystemExit("승인한 완료 예시를 확인할 수 없습니다.")
+    print(issue["url"], section[1].strip(), sep="\n", flush=True)
+    for command in (["openspec","validate",args.change,"--strict"],
+                    ["./gradlew","test","bootJar","--console=plain"]):
+        subprocess.run(command, cwd=pr_root, check=True)
+
+
+if __name__ == "__main__":
+    main()

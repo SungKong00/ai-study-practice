@@ -19,7 +19,7 @@ Claude Code는 필수 대상이 아니다. Rulesync·Archgate·Quorum은 제외�
 | Context7 MCP | 같은 MCP 설정의 원격 OAuth 연결. 외부 라이브러리 문서와 사용 예시를 조회한다. |
 | Showboat | [실행 명령](../package.json)의 `showboat`. 명시적인 보고 요청에만 사용한다. |
 
-Log4brains·Showboat의 고정 버전은 [Node.js 의존성과 명령](../package.json), adrs 버전은 [설치 스크립트](../scripts/setup-tools.py)에서 확인한다. `.agents/skills/`에는 OpenSpec 기본 Skill 6개가 있으며, 생성한 CLI 버전은 각 Skill의 메타데이터에 있다. 직접 만든 개발 Skill은 없다.
+Log4brains·Showboat의 고정 버전은 [Node.js 의존성과 명령](../package.json), adrs 버전은 [설치 스크립트](../scripts/setup-tools.py)에서 확인한다. `.agents/skills/`에는 OpenSpec 기본 Skill 6개가 있으며, 생성한 CLI 버전은 각 Skill의 메타데이터에 있다. 팀 개발 스킬은 같은 디렉터리에서 관리한다.
 
 ## 처음 준비하기
 
@@ -39,9 +39,17 @@ codex mcp login context7
 
 OpenSpec·ADR 적용 여부는 [루트 작업 지침](../AGENTS.md)의 기준을 따른다.
 
-변경 제안은 `openspec-propose`, 구현은 `openspec-apply-change` Skill로 진행한다. 필요하면 Codex에 `$openspec-propose`처럼 직접 지정할 수 있다. 산출물 언어는 [OpenSpec 설정](../openspec/config.yaml)을 따르고, 세부 절차는 각 `SKILL.md`를 따른다.
+OpenSpec 1.14.3의 기본 스킬 6개와 선택 스킬 `verify`를 사용한다. 팀원은 저장소의 스킬을 사용한다. 스킬을 재생성할 때는 `openspec config profile`에서 기본 6개와 verify를 선택한 뒤 `openspec update`를 실행하고 생성 파일 diff를 확인한다. 이 CLI 명령은 도구 설정을 갱신한다. 아래 표의 update는 변경 계획을 고치는 에이전트 스킬이다. [공식 명령 목록](https://github.com/Fission-AI/OpenSpec/blob/v1.14.3/docs/commands.md)
 
-구현·검증 후 변경을 마무리할 때는 `openspec-archive-change`로 현재 명세 반영 여부를 확인하고 변경을 보관한다. 보관 없이 명세만 반영할 때는 `openspec-sync-specs`를 사용한다.
+| 시점 | 실행 주체와 결과 |
+|---|---|
+| Discord 문의·탐색 | 기획자는 `명세`로 현재 계약을 열거나 `탐색 질문`으로 기대 결과를 정리한다. 봇은 공식 explore 지침과 변경 요청용 discord-issue-refinement를 사용한다. 로컬 OpenSpec 파일을 만드는 공식 스킬은 개발 환경에서 실행한다. 담당자가 초안을 승인하면 n8n이 이슈를 게시한다. [포럼 사용법](../workflows/n8n/README.md#discord-포럼에서-요청하기) |
+| 승인된 이슈 인계 | 개발자가 기술 선택을 탐색할 때 `$openspec-explore`, 변경을 시작할 때 `$openspec-propose`를 사용한다. 제안에는 이유·범위, 변경 명세에는 사용자 동작·예시, 설계에는 기술 선택, 작업 목록에는 구현·검증할 일을 둔다. [산출물 언어](../openspec/config.yaml) |
+| 구현·결정 변경 | 개발자가 `$openspec-apply-change`로 작업을 구현한다. 승인한 결과가 달라지면 기획자와 다시 합의하고 `$openspec-update-change`로 영향을 받는 계획 문서를 함께 고친다. |
+| PR 준비 | [PR 준비 스킬](../.agents/skills/prepare-pr/SKILL.md)이 제품 변경에서 승인 이슈 원문·Gradle 테스트 → verify → 동기화·보관 → 엄격 검사·Spring 리뷰를 연결한다. verify는 승인 예시가 구현과 테스트로 이어지는지, sync는 변경한 요구사항이 기준 명세에 반영됐는지 확인하는 단계다. |
+| 완료·보관 | 한 PR로 끝나는 변경은 검증과 동기화를 마친 뒤 `$openspec-archive-change`로 보관할 수 있다. 여러 PR이면 마지막 구현 범위까지 끝났을 때 보관한다. 이미 동기화한 항목과 남은 항목을 비교하고 이동한 문서 링크를 확인한다. 팀원이 CI 결과와 코드·기준 명세 diff를 보고 머지한다. 머지 후 Discord의 `명세` 링크로 반영 커밋을 확인한다. 봇은 n8n이 확인한 원격 커밋을 사용한다. |
+
+상품 동작의 근거와 명세 분리 기준은 [근거 관리 명세](../openspec/specs/spec-evidence/spec.md), Discord 초안·재승인·게시 복구 규칙은 [요청 접수 명세](../openspec/specs/team-request-intake/spec.md)를 따른다. 도입 배경과 대안은 [보관한 설계](../openspec/changes/archive/2026-11-26-design-team-request-lifecycle/design.md)에 있다.
 
 ## ADR 관리와 브라우저 조회
 
@@ -88,3 +96,5 @@ Showboat는 Git 변경사항을 자동 분석하거나 보고서를 자동 갱�
 - 로컬에서 “기능 요청 이슈 초안 써줘”라고 하면 [이슈 작성 스킬](../.agents/skills/issue-draft/SKILL.md)이 Discord와 같은 [기능 요청 양식](../.github/ISSUE_TEMPLATE/feature.md)을 채운다.
 - 개발자는 승인된 이슈로 OpenSpec을 작성하고 JPA 변경에 [Spring JPA 스킬](../.agents/skills/spring-jpa/SKILL.md)을 사용한다.
 - 기능 브랜치에서 “PR 초안 써줘” 또는 “PR 올려줘”라고 요청한다. [PR 준비 스킬](../.agents/skills/prepare-pr/SKILL.md)은 Spring 변경을 [로컬 리뷰](../.agents/skills/spring-change-review/SKILL.md)한 뒤 [PR 양식](../.github/pull_request_template.md)을 채운다. 제출을 요청하면 GitHub 인증과 저장소 쓰기 권한이 필요하다. PR에서 CI 결과를 확인하고 팀원이 머지를 결정한다.
+
+새 이슈 브랜치는 `codex/<번호>-<영문-주제>`를 사용한다. 제출 전 [커밋 정리](../.agents/skills/commit-change/SKILL.md), 머지 요청 시 [PR 머지](../.agents/skills/merge-pr/SKILL.md)를 따른다. 선택적 로컬 검사는 기존 Git 훅과 충돌하지 않는 설치에서 `git config --local core.hooksPath scripts/hooks`로 켠다.
